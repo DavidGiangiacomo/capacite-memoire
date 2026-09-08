@@ -18,16 +18,16 @@ Puis ouvrir <http://localhost:8000/>. Une partie du MVP dure une dizaine de minu
 ## Tester
 
 ```sh
-npm test             # node --test, 23 tests sur le moteur (aucune dépendance)
+npm test             # node --test, 24 tests sur le moteur (aucune dépendance)
 ```
 
 ## Ce que couvre le MVP
 
 - **Actes I et II** : 12 premiers tirages à 1 / 25 s (souvenirs courts), puis 1 / 9 s avec les souvenirs longs.
-- **40 souvenirs écrits** (`src/corpus.js`) : 24 courts (4–9 unités), 16 longs (24–40 unités), 2 à 3 motifs chacun.
-- **Capacité 512 → 768** via l'outil *Extension*.
-- **Indexation** : rend les motifs visibles, +20 % sur les liens, occupe 120 unités en permanence.
-- **La première saturation**, obligatoire : un souvenir arrive sans place, les arrivées s'arrêtent, et il faut l'écarter ou oublier autre chose. Le jeu ne suggère rien.
+- **40 souvenirs écrits** (`src/corpus.js`) : 24 courts (5–9 unités), 16 longs (30–40 unités), 2 à 3 motifs chacun. 770 unités en tout : le corpus ne tient ni dans 512, ni dans 768.
+- **Indexation** (6 000 A) : rend les motifs visibles, +20 % sur les liens, occupe 120 unités en permanence. C'est le premier outil, comme dans le doc.
+- **Capacité 512 → 768** via l'outil *Extension* (10 000 A).
+- **La première saturation**, obligatoire : un souvenir arrive sans place, et il faut l'écarter ou oublier autre chose. Le jeu ne suggère rien. Pendant ce choix, le temps du jeu s'arrête : rien n'arrive, rien n'est produit, rien ne s'achète. Hésiter ne rapporte rien.
 - Le réseau d'associations (§6) : `A/s = Σ souvenirs × 0,3 + Σ liens × 2,4`. Le rendement de chaque entrée est affiché en gris.
 - Tout occupe de la place : la phrase initiale (12), l'aide (60), l'historique (1 par minute, oubli par tranches de 5), les outils.
 - Le journal : une ligne grise par suppression, identique dans tous les cas, sans le texte supprimé.
@@ -48,7 +48,7 @@ Le jeu mesure combien de temps le joueur reste sur chaque écran de choix. Avec 
 
 | Paramètre | Effet |
 |---|---|
-| `?vitesse=20` | accélère le temps (la première saturation arrive en ~25 s au lieu de ~8 min) |
+| `?vitesse=20` | accélère le temps (la première saturation arrive en ~20 s au lieu de ~7 min) |
 | `?graine=1` | fixe le tirage |
 | `?debug` | affiche les mesures de saturation |
 
@@ -69,6 +69,8 @@ docs/design-doc.md
 ## Choix d'implémentation à noter
 
 - **Oublier à deux clics.** Le bouton passe à « sûr ? » pendant 2,5 s ; le second clic supprime. Ce n'est pas une annulation ni une réassurance (R2), c'est une garde contre le clic accidentel, qui fausserait la mesure du §14.
-- **Rythme compressé.** Avec 40 souvenirs, la première saturation arrive vers 8 min et la partie dure ~10–12 min. Les 12 minutes d'acte I du §9 supposent le corpus complet.
-- **Équilibrage des outils.** Extension 20 000 A, Indexation 30 000 A, calés par simulation pour arriver respectivement ~45 s et ~2 min après la première saturation (≈14 000 A, ≈140 A/s à ce moment-là). Même avec les deux outils, le corpus ne tient pas : il faut oublier au moins ~110 unités.
+- **Rythme compressé.** Avec 40 souvenirs, la première saturation arrive vers 7 min et la partie dure 10–12 min de temps de jeu, plus le temps des choix. Les 12 minutes d'acte I du §9 supposent le corpus complet.
+- **Le temps s'arrête pendant le choix.** Première version : les associations continuaient pendant l'écran de choix, donc en hésitant on finissait par pouvoir acheter l'Extension et résoudre la saturation sans rien oublier. Le premier test l'a montré. Maintenant le choix est fermé : écarter, ou oublier.
+- **Équilibrage des outils.** Indexation 6 000 A, Extension 10 000 A, calés par simulation (cinq graines, trois stratégies de joueur) : l'Indexation devient abordable vers 6,5 min, juste avant la première saturation qu'elle précipite avec ses 120 unités ; l'Extension vers 9 min, après plusieurs oublis. Même à 768 avec l'aide et la phrase oubliées, il manque de la place : entre 5 et 12 choix forcés par partie selon la stratégie.
+- **L'historique ne s'écrit pas quand c'est plein.** Tout ce qui entre doit tenir ; l'occupation ne dépasse jamais la capacité.
 - **Historique.** Une ligne par minute (`min 7 — 23 retenus, 311 / 512`), oubliable par tranches de 5 lignes.
