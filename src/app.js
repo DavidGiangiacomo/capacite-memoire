@@ -325,17 +325,58 @@ function rendreLecture() {
 
 // ——— Debug (§14 : combien de temps sur le premier écran de choix ?) ———
 
-let $debug;
+let $debug, $debugTexte;
 function rendreDebug() {
   if (!$debug) {
     $debug = el('div', 'debug');
+    $debugTexte = el('pre', 'debug-texte');
+    const copier = el('button', null, 'copier les mesures (JSON)');
+    copier.type = 'button';
+    copier.addEventListener('click', async () => {
+      const json = JSON.stringify(mesuresExportables(), null, 2);
+      try {
+        await navigator.clipboard.writeText(json);
+        copier.textContent = 'copié';
+      } catch {
+        console.log(json);
+        copier.textContent = 'voir la console';
+      }
+      setTimeout(() => { copier.textContent = 'copier les mesures (JSON)'; }, 2000);
+    });
+    $debug.append($debugTexte, copier);
     document.body.append($debug);
+    console.log('mesures §14', mesuresExportables());
   }
-  const lignes = [`t=${horodatage(etat.temps)} ×${VITESSE} acte=${etat.acte} tirés=${etat.tires.length} liens=${M.nombreDeLiens(etat)} graine=${etat.graine}`];
+  const lignes = [`t=${horodatage(etat.temps)} ×${VITESSE} acte=${etat.acte} tirés=${etat.tires.length} retenus=${etat.entrees.length} liens=${M.nombreDeLiens(etat)} graine=${etat.graine}${etat.termine ? ' terminé' : ''}`];
+  if (etat.mesures.saturations.length === 0) lignes.push('aucune saturation pour l’instant');
   for (const s of etat.mesures.saturations) {
-    lignes.push(`saturation ${s.n} (${s.id}, ${s.cout}u, libre ${s.libre}) : ${s.dureeMs == null ? 'en cours' : `${(s.dureeMs / 1000).toFixed(1)} s, ${s.decision}, ${s.oublis} oubli(s)`}`);
+    const etatLigne = s.dureeMs == null
+      ? 'en cours'
+      : `${(s.dureeMs / 1000).toFixed(1)} s · ${s.decision === 'ecart' ? 'écarté' : 'oubli'} · ${s.oublis} oubli(s)`;
+    lignes.push(`choix ${String(s.n).padStart(2)} · ${horodatage(s.debutMs)} · ${s.cout}u pour ${s.libre} libres · ${etatLigne}`);
   }
-  $debug.textContent = lignes.join('\n');
+  $debugTexte.textContent = lignes.join('\n');
+}
+
+/** Les mesures du §14, sans aucun texte de souvenir. */
+function mesuresExportables() {
+  return {
+    graine: etat.graine,
+    vitesse: VITESSE,
+    tempsDeJeuMs: etat.temps,
+    termine: etat.termine,
+    retenus: etat.entrees.length,
+    outils: [...etat.outils],
+    saturations: etat.mesures.saturations.map((s) => ({
+      n: s.n,
+      debutMs: s.debutMs,
+      dureeMs: s.dureeMs,
+      decision: s.decision,
+      oublis: s.oublis,
+      coutArrivant: s.cout,
+      libre: s.libre,
+    })),
+  };
 }
 
 // ——— Écrans ———
@@ -345,7 +386,7 @@ function ecran(nom) {
   $jeu.hidden = nom !== 'jeu';
   $fin.hidden = nom !== 'fin';
   $lecture.hidden = nom !== 'lecture';
-  if ($debug) $debug.hidden = nom !== 'jeu';
+  if (DEBUG) rendreDebug();
   if (nom === 'fin') rendreFin();
   if (nom === 'lecture') rendreLecture();
 }
@@ -370,7 +411,8 @@ setInterval(() => {
   if (document.hidden || etat.termine) return;
 
   const historiqueAvant = etat.historique.length;
-  const evenements = M.tick(etat, dtReel * VITESSE, rng);
+  // Pendant un choix, le temps qui passe est celui de l'hésitation : il n'est pas accéléré.
+  const evenements = M.tick(etat, etat.enAttente ? dtReel : dtReel * VITESSE, rng);
   const plein = evenements.length > 0 || etat.historique.length !== historiqueAvant;
   if (plein) {
     sauver();

@@ -235,14 +235,16 @@ button:disabled { color: var(--gris-2); border-color: var(--papier-2); cursor: d
   position: fixed;
   left: 8px;
   bottom: 8px;
+  max-width: 60vw;
   font: 11px/1.4 monospace;
-  color: var(--gris);
-  background: rgba(255,255,255,0.7);
-  padding: 4px 6px;
+  color: var(--encre-2);
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--trait);
+  padding: 6px 8px;
   border-radius: 3px;
-  white-space: pre;
-  pointer-events: none;
 }
+.debug pre { margin: 0 0 6px; white-space: pre; overflow-x: auto; font: inherit; }
+.debug button { font: inherit; padding: 1px 6px; }
 
 @media (max-width: 900px) {
   .jeu { grid-template-columns: 1fr; grid-template-rows: auto auto; height: auto; }

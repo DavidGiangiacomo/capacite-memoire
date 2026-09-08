@@ -40,7 +40,15 @@ Hors périmètre, conformément au §14 : compression, réseau à deux sauts, au
 
 ## Le test du §14
 
-Le jeu mesure combien de temps le joueur reste sur chaque écran de choix. Avec `?debug` dans l'URL, un cartouche en bas à gauche affiche pour chaque saturation : durée, décision (`oubli` ou `ecart`), nombre d'oublis. Les mêmes mesures sont dans la sauvegarde, champ `mesures.saturations`.
+Le jeu mesure combien de temps le joueur reste sur chaque écran de choix, en temps réel, même avec `?vitesse`.
+
+**Récupérer les mesures**, pendant ou après la partie (la sauvegarde reste tant qu'on n'a pas cliqué « tout effacer ») :
+
+1. Ouvrir la page avec `?debug` à la fin de l'URL, par exemple `http://localhost:8000/?debug`.
+2. Un cartouche en bas à gauche liste une ligne par choix : heure de jeu, coût du souvenir arrivant et place libre, durée de l'hésitation en secondes, décision (`oubli` ou `écarté`), nombre d'oublis.
+3. Le bouton « copier les mesures (JSON) » met les mêmes données dans le presse-papiers. Elles sont aussi écrites dans la console du navigateur au chargement. Le JSON ne contient aucun texte de souvenir.
+
+Les mêmes mesures sont dans la sauvegarde `localStorage`, champ `mesures.saturations`.
 
 > S'il tranche en deux secondes, les souvenirs sont mal écrits et le jeu n'existe pas. S'il hésite dix secondes et relit la liste, tout le reste du document tient.
 
