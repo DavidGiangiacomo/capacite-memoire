@@ -1,0 +1,12 @@
+{
+  "name": "capacite-memoire",
+  "version": "0.1.0",
+  "description": "Capacité de mémoire — MVP (actes I et II) du concept n°6 des « Douze concepts de jeux incrémentaux »",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "license": "UNLICENSED"
+}
