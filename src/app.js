@@ -290,7 +290,7 @@ function rafraichirCompteurs() {
   for (const { cle, bouton } of $outilsBoutons) {
     const v = M.peutAcheter(etat, cle);
     bouton.disabled = !v.ok;
-    bouton.title = v.ok ? '' : v.raison === 'espace' ? 'Pas assez de place.' : 'Pas assez d’associations.';
+    bouton.title = v.ok ? '' : v.raison === 'attente' ? 'Un souvenir attend.' : v.raison === 'espace' ? 'Pas assez de place.' : 'Pas assez d’associations.';
   }
   if (DEBUG) rendreDebug();
 }

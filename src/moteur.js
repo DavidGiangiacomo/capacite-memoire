@@ -32,22 +32,23 @@ export const ACTES = {
 };
 export const TIRAGES_AVANT_ACTE_2 = 12;
 
-// Outils (§7). Les coûts en A sont calibrés sur ce corpus de 40 souvenirs
-// (voir test/equilibrage.test.mjs) pour que l'Extension arrive un peu après
-// la première saturation, et l'Indexation après les premiers oublis.
+// Outils (§7). Comme dans le doc, l'Indexation est le premier vrai upgrade ;
+// l'Extension vient après. Les coûts en A sont calibrés sur ce corpus de 40 souvenirs
+// (voir test/moteur.test.mjs, « équilibrage ») pour que l'Indexation soit abordable
+// autour de la première saturation, et l'Extension après plusieurs oublis.
 export const OUTILS = {
-  extension: {
-    nom: 'Extension',
-    description: `La capacité passe de ${CAPACITE_INITIALE} à ${CAPACITE_ETENDUE}.`,
-    coutA: 20_000,
-    espace: 0,
-    acte: 2,
-  },
   indexation: {
     nom: 'Indexation',
     description: 'Rend les motifs visibles. Les liens produisent 20 % de plus. Occupe 120 unités en permanence.',
-    coutA: 30_000,
+    coutA: 6_000,
     espace: 120,
+    acte: 2,
+  },
+  extension: {
+    nom: 'Extension',
+    description: `La capacité passe de ${CAPACITE_INITIALE} à ${CAPACITE_ETENDUE}.`,
+    coutA: 10_000,
+    espace: 0,
     acte: 2,
   },
 };
@@ -233,18 +234,27 @@ export function tick(etat, dtMs, rng = creerRng(etat.graine)) {
   if (etat.termine) return evenements;
 
   etat.temps += dtMs;
+
+  if (etat.enAttente) {
+    // Pendant le choix, le temps du jeu s'arrête : rien n'est produit, rien n'arrive.
+    // Seule la durée de l'hésitation est mesurée (§14). Hésiter ne rapporte rien.
+    etat.prochaineLigneHistoriqueMs += dtMs;
+    return evenements;
+  }
+
   etat.A += (rendement(etat) * dtMs) / 1000;
 
   if (etat.temps >= etat.prochaineLigneHistoriqueMs) {
     const minute = Math.round(etat.prochaineLigneHistoriqueMs / 60_000);
-    etat.historique.push({
-      t: etat.temps,
-      texte: `min ${minute} — ${etat.entrees.length} retenus, ${occupation(etat)} / ${etat.capacite}`,
-    });
+    // Tout ce qui entre doit tenir : sans place, la ligne n'est pas écrite.
+    if (libre(etat) >= 1) {
+      etat.historique.push({
+        t: etat.temps,
+        texte: `min ${minute} — ${etat.entrees.length} retenus, ${occupation(etat)} / ${etat.capacite}`,
+      });
+    }
     etat.prochaineLigneHistoriqueMs += 60_000;
   }
-
-  if (etat.enAttente) return evenements; // les arrivées attendent la décision
 
   etat.prochaineArriveeMs -= dtMs;
   if (etat.prochaineArriveeMs > 0) return evenements;
@@ -346,8 +356,9 @@ export function ecarter(etat) {
 export function peutAcheter(etat, cle) {
   const o = OUTILS[cle];
   if (!o || aOutil(etat, cle) || o.acte > etat.acte) return { ok: false, raison: 'indisponible' };
+  if (etat.enAttente) return { ok: false, raison: 'attente' }; // il faut choisir : écarter, ou oublier
   if (etat.A < o.coutA) return { ok: false, raison: 'associations' };
-  if (libre(etat) < o.espace) return { ok: false, raison: 'espace' };
+  if (o.espace > 0 && libre(etat) < o.espace) return { ok: false, raison: 'espace' };
   return { ok: true };
 }
 
@@ -358,8 +369,7 @@ export function acheter(etat, cle) {
   etat.A -= o.coutA;
   etat.outils.push(cle);
   if (cle === 'extension') etat.capacite = CAPACITE_ETENDUE;
-  const suite = reessayerAttente(etat, 'extension');
-  return { ok: true, suite };
+  return { ok: true };
 }
 
 // ——— Sauvegarde (R5 : unique, écrasée, offusquée — pas de conception défensive au-delà) ———

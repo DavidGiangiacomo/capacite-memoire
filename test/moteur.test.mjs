@@ -37,6 +37,8 @@ test('le corpus compte 40 souvenirs, 24 courts et 16 longs, dans les fourchettes
   assert.equal(longs.length, 16);
   for (const s of courts) assert.ok(s.cout >= 4 && s.cout <= 9, s.id);
   for (const s of longs) assert.ok(s.cout >= 18 && s.cout <= 40, s.id);
+  const total = CORPUS.reduce((a, s) => a + s.cout, 0);
+  assert.equal(total, 770);
 });
 
 test('chaque souvenir a un id unique, un texte, et 2 à 4 motifs', () => {
@@ -48,9 +50,9 @@ test('chaque souvenir a un id unique, un texte, et 2 à 4 motifs', () => {
   }
 });
 
-test('le corpus ne tient pas en entier, même avec Extension et Indexation (I5)', () => {
-  const total = CORPUS.reduce((a, s) => a + s.cout, 0) + M.COUT_PHRASE + M.COUT_AIDE;
-  assert.ok(total > M.CAPACITE_ETENDUE - M.OUTILS.indexation.espace);
+test('le corpus ne tient pas en entier à 768, même sans Indexation et sans aide (I5)', () => {
+  const total = CORPUS.reduce((a, s) => a + s.cout, 0);
+  assert.ok(total > M.CAPACITE_ETENDUE, `${total} unités de souvenirs pour ${M.CAPACITE_ETENDUE}`);
 });
 
 // ——— Espace ———
@@ -61,7 +63,7 @@ test('tout occupe de la place : phrase, aide, historique, outils, souvenirs', ()
   etat.entrees.push(entree('regle-fer'));
   etat.historique.push({ t: 0, texte: 'x' }, { t: 0, texte: 'y' });
   etat.outils.push('indexation');
-  assert.equal(M.occupation(etat), M.COUT_PHRASE + M.COUT_AIDE + 8 + 2 + 120);
+  assert.equal(M.occupation(etat), M.COUT_PHRASE + M.COUT_AIDE + 9 + 2 + 120);
   assert.equal(M.libre(etat), 512 - M.occupation(etat));
 });
 
@@ -115,15 +117,22 @@ test("un souvenir est retenu s'il y a de la place, sinon il attend une décision
   assert.equal(etat.mesures.saturations[0].finMs, null);
 });
 
-test("pendant la saturation, les arrivées s'arrêtent mais les associations continuent", () => {
+test("pendant la saturation, le temps du jeu s'arrête : ni arrivée, ni association, ni historique, ni achat", () => {
   const etat = M.nouvelEtat(1);
   const rng = M.creerRng(1);
   jusquA(etat, rng, 'saturation');
   const tires = etat.tires.length;
   const A = etat.A;
+  const historique = etat.historique.length;
+  etat.A = 1e9;
+  assert.equal(M.peutAcheter(etat, 'extension').raison, 'attente');
+  assert.equal(M.peutAcheter(etat, 'indexation').raison, 'attente');
+  etat.A = A;
   for (let i = 0; i < 400; i++) M.tick(etat, 250, rng);
   assert.equal(etat.tires.length, tires);
-  assert.ok(etat.A > A);
+  assert.equal(etat.A, A);
+  assert.equal(etat.historique.length, historique);
+  assert.equal(etat.mesures.saturations[0].finMs, null);
 });
 
 test("l'acte II commence après le douzième tirage et débloque les souvenirs longs", () => {
@@ -157,7 +166,7 @@ test("oublier retire l'entrée, bannit l'id, écrit une ligne de journal identiq
   assert.ok(!etat.entrees.some((e) => e.id === 'regle-fer'));
   assert.deepEqual(etat.bannis, ['regle-fer']);
   assert.equal(etat.journal.length, 1);
-  assert.equal(etat.journal[0].texte, 'oublié · 8 unités');
+  assert.equal(etat.journal[0].texte, 'oublié · 9 unités');
   assert.ok(!etat.journal[0].texte.includes('règle'));
   assert.ok(!JSON.stringify(etat).includes('règle en fer'));
   assert.equal(M.oublier(etat, 'regle-fer'), null);
@@ -222,13 +231,24 @@ test('écarter le souvenir en attente le bannit et relance les arrivées', () =>
   assert.ok(ev);
 });
 
+test("l'historique ne s'écrit pas quand il n'y a plus de place : l'occupation ne dépasse jamais la capacité", () => {
+  const etat = M.nouvelEtat(1);
+  etat.entrees.push({ id: 'plein', texte: 'x', cout: M.libre(etat), motifs: ['a'], arriveeMs: 0 });
+  const rng = M.creerRng(1);
+  for (let i = 0; i < 600; i++) { M.tick(etat, 250, rng); if (etat.enAttente) M.ecarter(etat); }
+  assert.equal(etat.historique.length, 0);
+  assert.ok(M.occupation(etat) <= etat.capacite);
+});
+
 // ——— Outils ———
 
-test("l'Extension coûte des A et porte la capacité à 768", () => {
+test("l'Extension coûte des A et porte la capacité à 768, même quand le registre est plein", () => {
   const etat = M.nouvelEtat(1);
   etat.acte = 2;
   assert.equal(M.peutAcheter(etat, 'extension').raison, 'associations');
   etat.A = M.OUTILS.extension.coutA;
+  etat.entrees.push({ id: 'plein', texte: 'x', cout: M.libre(etat), motifs: ['a'], arriveeMs: 0 });
+  assert.equal(M.libre(etat), 0);
   assert.ok(M.acheter(etat, 'extension').ok);
   assert.equal(etat.capacite, 768);
   assert.equal(etat.A, 0);
