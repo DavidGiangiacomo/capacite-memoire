@@ -1,0 +1,47 @@
+# Publie le jeu sur GitHub Pages à chaque push sur main, après les tests du moteur.
+# Prérequis (une fois) : Settings → Pages → Source : « GitHub Actions ».
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm test
+      # Seuls les fichiers du jeu sont publiés : ni captures, ni tests, ni design doc.
+      - name: Assembler le site
+        run: |
+          mkdir _site
+          cp -r index.html style.css src _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  publier:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

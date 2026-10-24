@@ -4,7 +4,15 @@ Prototype falsifiable (§14 du [design doc](docs/design-doc.md)) du concept n°6
 
 Une seule ressource, fixe : l'espace. Les souvenirs arrivent seuls ; tout ce qui entre doit tenir ; ce qui ne tient pas doit sortir. Oublier libère de la place et supprime réellement le texte, de l'écran, de la sauvegarde et du jeu.
 
-## Lancer
+## Jouer en ligne
+
+<https://davidgiangiacomo.github.io/capacite-memoire/>
+
+Publié sur GitHub Pages par `.github/workflows/pages.yml` à chaque push sur `main`, après les tests. Seuls `index.html`, `style.css` et `src/` sont publiés. Prérequis, une seule fois : *Settings → Pages → Source : GitHub Actions*.
+
+Les options d'URL ci-dessous marchent aussi en ligne, par exemple <https://davidgiangiacomo.github.io/capacite-memoire/?debug>.
+
+## Lancer en local
 
 Aucune dépendance. Les scripts sont des modules ES, il faut donc un serveur statique :
 
