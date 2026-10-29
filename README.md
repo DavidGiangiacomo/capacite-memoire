@@ -59,6 +59,16 @@ Le jeu mesure combien de temps le joueur reste sur chaque écran de choix, en te
 
 Les mêmes mesures sont dans la sauvegarde `localStorage`, champ `mesures.saturations`.
 
+**Hésitation ou pause ?** Le jeu s'arrête quand l'onglet est caché, mais pas quand la fenêtre perd le focus ou que le joueur se lève. Trois mesures de chaque choix aident à faire la différence, sans rien afficher au joueur :
+
+| Champ | Ce qu'il mesure | Ce qu'il suggère |
+|---|---|---|
+| `premierPlanMs` | le temps passé fenêtre au premier plan | très inférieur à `dureeMs` : le joueur était dans une autre fenêtre |
+| `plusLongueInactiviteMs` | la plus longue période sans bouger la souris, faire défiler, cliquer ni taper | proche de `dureeMs` : personne devant l'écran ; quelques secondes : une lecture |
+| `armesAbandonnes` | les « sûr ? » qui ont expiré ou ont été remplacés sans second clic | le joueur a failli oublier un souvenir, puis s'est ravisé |
+
+Les choix faits avant l'ajout de ces champs les exportent à `null`.
+
 > S'il tranche en deux secondes, les souvenirs sont mal écrits et le jeu n'existe pas. S'il hésite dix secondes et relit la liste, tout le reste du document tient.
 
 ## Options d'URL (développement)

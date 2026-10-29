@@ -332,3 +332,79 @@ test('le jeu se termine quand le corpus est épuisé, et rien ne compte ce qui a
   assert.equal(M.tick(etat, 250, rng).length, 0);
   assert.ok(!('perdus' in etat));
 });
+
+// ——— Mesures du §14 : hésitation ou pause ———
+
+function avancer(etat, rng, ticks, options) {
+  for (let i = 0; i < ticks; i++) M.tick(etat, 250, rng, options);
+}
+
+test('le temps au premier plan ne compte que lorsque la fenêtre a le focus', () => {
+  const etat = M.nouvelEtat(1);
+  const rng = M.creerRng(1);
+  jusquA(etat, rng, 'saturation');
+  avancer(etat, rng, 8); // 2 s au premier plan
+  avancer(etat, rng, 12, { auPremierPlan: false }); // 3 s dans une autre fenêtre
+  M.ecarter(etat);
+  const m = etat.mesures.saturations[0];
+  assert.equal(m.dureeMs, 5000);
+  assert.equal(m.premierPlanMs, 2000);
+});
+
+test('la plus longue période sans interaction est mesurée, fin du choix comprise', () => {
+  const etat = M.nouvelEtat(1);
+  const rng = M.creerRng(1);
+  jusquA(etat, rng, 'saturation');
+  avancer(etat, rng, 4); // 1 s
+  M.noterInteraction(etat);
+  avancer(etat, rng, 12); // 3 s sans rien faire
+  M.noterInteraction(etat);
+  avancer(etat, rng, 2); // 0,5 s
+  M.ecarter(etat);
+  const m = etat.mesures.saturations[0];
+  assert.equal(m.plusLongueInactiviteMs, 3000);
+  assert.ok(!('derniereInteractionMs' in m), 'le repère interne ne reste pas dans la sauvegarde');
+
+  // Sans aucune interaction, toute la durée du choix est une inactivité.
+  jusquA(etat, rng, 'saturation');
+  avancer(etat, rng, 20);
+  M.ecarter(etat);
+  const m2 = etat.mesures.saturations[1];
+  assert.equal(m2.plusLongueInactiviteMs, m2.dureeMs);
+});
+
+test('les « sûr ? » abandonnés sont comptés pendant un choix, et seulement pendant un choix', () => {
+  const etat = M.nouvelEtat(1);
+  const rng = M.creerRng(1);
+  M.noterArmeAbandonne(etat); // hors choix : ignoré
+  M.noterInteraction(etat);
+  assert.equal(etat.mesures.saturations.length, 0);
+
+  jusquA(etat, rng, 'saturation');
+  M.noterArmeAbandonne(etat);
+  M.noterArmeAbandonne(etat);
+  M.ecarter(etat);
+  M.noterArmeAbandonne(etat); // après la décision : ignoré
+  M.noterInteraction(etat);
+  const m = etat.mesures.saturations[0];
+  assert.equal(m.armesAbandonnes, 2);
+  assert.ok(!('derniereInteractionMs' in m));
+});
+
+test('une mesure venue d’une sauvegarde plus ancienne, sans ces champs, reste juste', () => {
+  const etat = M.nouvelEtat(1);
+  const rng = M.creerRng(1);
+  jusquA(etat, rng, 'saturation');
+  const m = etat.mesures.saturations[0];
+  delete m.premierPlanMs;
+  delete m.plusLongueInactiviteMs;
+  delete m.armesAbandonnes;
+  avancer(etat, rng, 4);
+  M.noterInteraction(etat);
+  M.noterArmeAbandonne(etat);
+  avancer(etat, rng, 4);
+  M.ecarter(etat);
+  assert.equal(m.premierPlanMs, 2000);
+  assert.equal(m.plusLongueInactiviteMs, 1000);
+  assert.equal(m.armesAbandonnes, 1);
+});

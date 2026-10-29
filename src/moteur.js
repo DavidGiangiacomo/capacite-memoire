@@ -225,12 +225,43 @@ function terminerMesure(etat, decision) {
     m.finMs = etat.temps;
     m.dureeMs = m.finMs - m.debutMs;
     m.decision = decision;
+    compterInactivite(m, etat.temps);
+    delete m.derniereInteractionMs;
   }
+}
+
+// ——— Mesures du §14 : distinguer une hésitation d'une pause ———
+// L'application signale ce que fait le joueur pendant un choix. Rien n'est affiché au joueur.
+
+/** La mesure du choix en cours, s'il y en a un. */
+function mesureOuverte(etat) {
+  const m = etat.mesures.saturations.at(-1);
+  return etat.enAttente && m && m.finMs == null ? m : null;
+}
+
+function compterInactivite(m, maintenantMs) {
+  const depuis = m.derniereInteractionMs ?? m.debutMs;
+  m.plusLongueInactiviteMs = Math.max(m.plusLongueInactiviteMs ?? 0, maintenantMs - depuis);
+}
+
+/** Le joueur a bougé, fait défiler, cliqué ou tapé : la plus longue période sans interaction est mise à jour. */
+export function noterInteraction(etat) {
+  const m = mesureOuverte(etat);
+  if (!m) return;
+  compterInactivite(m, etat.temps);
+  m.derniereInteractionMs = etat.temps;
+}
+
+/** Un « sûr ? » a expiré, ou a été remplacé, sans second clic : le joueur a failli oublier. */
+export function noterArmeAbandonne(etat) {
+  const m = mesureOuverte(etat);
+  if (m) m.armesAbandonnes = (m.armesAbandonnes ?? 0) + 1;
 }
 
 // ——— Tick (4 Hz suffit, §15) ———
 
-export function tick(etat, dtMs, rng = creerRng(etat.graine)) {
+// `auPremierPlan` : la fenêtre du jeu a le focus. Sert seulement aux mesures du §14.
+export function tick(etat, dtMs, rng = creerRng(etat.graine), { auPremierPlan = true } = {}) {
   const evenements = [];
   if (etat.termine) return evenements;
 
@@ -240,6 +271,8 @@ export function tick(etat, dtMs, rng = creerRng(etat.graine)) {
     // Pendant le choix, le temps du jeu s'arrête : rien n'est produit, rien n'arrive.
     // Seule la durée de l'hésitation est mesurée (§14). Hésiter ne rapporte rien.
     etat.prochaineLigneHistoriqueMs += dtMs;
+    const m = mesureOuverte(etat);
+    if (m && auPremierPlan) m.premierPlanMs = (m.premierPlanMs ?? 0) + dtMs;
     return evenements;
   }
 
@@ -294,6 +327,9 @@ export function tick(etat, dtMs, rng = creerRng(etat.graine)) {
       dureeMs: null,
       decision: null,
       oublis: 0,
+      premierPlanMs: 0, // temps passé fenêtre au premier plan
+      plusLongueInactiviteMs: 0, // plus longue période sans aucune interaction
+      armesAbandonnes: 0, // « sûr ? » expirés ou remplacés sans second clic
     });
     evenements.push({ type: 'saturation', id: souvenir.id });
   }
