@@ -34,8 +34,9 @@ export const TIRAGES_AVANT_ACTE_2 = 12;
 
 // Outils (§7). Comme dans le doc, l'Indexation est le premier vrai upgrade ;
 // l'Extension vient après. Les coûts en A sont calibrés sur ce corpus de 40 souvenirs
-// (voir test/moteur.test.mjs, « équilibrage ») pour que l'Indexation soit abordable
+// avec scripts/simuler.mjs (`npm run simuler`) pour que l'Indexation soit abordable
 // autour de la première saturation, et l'Extension après plusieurs oublis.
+// test/equilibrage.test.mjs garde ces invariants.
 export const OUTILS = {
   indexation: {
     nom: 'Indexation',
