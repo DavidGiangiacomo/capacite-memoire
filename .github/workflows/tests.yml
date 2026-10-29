@@ -1,0 +1,56 @@
+# Lance les tests du moteur et les invariants d'équilibrage à chaque pull request
+# et à chaque push sur main. La publication sur Pages (pages.yml) refait les tests
+# avant de déployer : celui-ci sert de vérification sur les pull requests.
+
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un nouveau push sur la même branche annule la vérification précédente.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: npm test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      # Aucune dépendance à installer : le projet n'utilise que Node.
+      - run: npm test
+
+  equilibrage:
+    name: Simulation d'équilibrage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # Le calendrier de chaque partie simulée, dans le résumé du job.
+      # Échoue si l'occupation dépasse la capacité dans une partie.
+      - name: npm run simuler
+        shell: bash
+        run: |
+          statut=0
+          printf '### Simulation d’équilibrage\n\n```\n' >> "$GITHUB_STEP_SUMMARY"
+          npm run --silent simuler | tee -a "$GITHUB_STEP_SUMMARY" || statut=$?
+          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+          exit "$statut"

@@ -1,5 +1,7 @@
 # Capacité de mémoire — MVP
 
+[![Tests](https://github.com/DavidGiangiacomo/capacite-memoire/actions/workflows/tests.yml/badge.svg)](https://github.com/DavidGiangiacomo/capacite-memoire/actions/workflows/tests.yml)
+
 Prototype falsifiable (§14 du [design doc](docs/design-doc.md)) du concept n°6 des « Douze concepts de jeux incrémentaux ».
 
 Une seule ressource, fixe : l'espace. Les souvenirs arrivent seuls ; tout ce qui entre doit tenir ; ce qui ne tient pas doit sortir. Oublier libère de la place et supprime réellement le texte, de l'écran, de la sauvegarde et du jeu.
@@ -29,6 +31,8 @@ Puis ouvrir <http://localhost:8000/>. Une partie du MVP dure une dizaine de minu
 npm test             # node --test : tests du moteur et invariants d'équilibrage (aucune dépendance)
 npm run simuler      # joue des parties entières et affiche le calendrier de chacune
 ```
+
+Les deux tournent aussi sur GitHub Actions (`.github/workflows/tests.yml`) à chaque pull request et à chaque push sur `main` : les tests sous Node 22 et 24, la simulation dans le résumé du job.
 
 ## Ce que couvre le MVP
 
