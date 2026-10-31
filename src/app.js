@@ -22,6 +22,7 @@ const fmtEntier = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
 const fmtDecimal = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nombre = (n) => fmtEntier.format(n);
 const decimal = (n) => fmtDecimal.format(n);
+const secondes = (ms) => (ms == null ? '?' : `${(ms / 1000).toFixed(1)} s`);
 const horodatage = (ms) => {
   const s = Math.floor(ms / 1000);
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -87,8 +88,14 @@ function boutonOublier(cle, action, libelle = 'oublier') {
 }
 
 function armer(cle) {
+  if (arme) abandonner();
+  arme = { cle, delai: setTimeout(() => { abandonner(); rendre(); }, 2500) };
+}
+
+/** Un « sûr ? » qui expire ou que le joueur remplace : il a failli oublier (mesure du §14). */
+function abandonner() {
+  if (arme) M.noterArmeAbandonne(etat);
   desarmer();
-  arme = { cle, delai: setTimeout(() => { arme = null; rendre(); }, 2500) };
 }
 
 function desarmer() {
@@ -134,7 +141,7 @@ function rendreRegistre() {
     const ecarter = el('button', null, 'Écarter');
     ecarter.type = 'button';
     ecarter.addEventListener('click', () => {
-      desarmer();
+      abandonner();
       M.ecarter(etat);
       sauver();
       rendre();
@@ -352,29 +359,36 @@ function rendreDebug() {
   for (const s of etat.mesures.saturations) {
     const etatLigne = s.dureeMs == null
       ? 'en cours'
-      : `${(s.dureeMs / 1000).toFixed(1)} s · ${s.decision === 'ecart' ? 'écarté' : 'oubli'} · ${s.oublis} oubli(s)`;
+      : `${secondes(s.dureeMs)} · ${s.decision === 'ecart' ? 'écarté' : 'oubli'} · ${s.oublis} oubli(s)`;
     lignes.push(`choix ${String(s.n).padStart(2)} · ${horodatage(s.debutMs)} · ${s.cout}u pour ${s.libre} libres · ${etatLigne}`);
+    if (s.dureeMs != null) {
+      lignes.push(`         premier plan ${secondes(s.premierPlanMs)} · pause max ${secondes(s.plusLongueInactiviteMs)} · « sûr ? » abandonnés ${s.armesAbandonnes ?? '?'}`);
+    }
   }
   $debugTexte.textContent = lignes.join('\n');
 }
 
-/** Les mesures du §14, sans aucun texte de souvenir. */
+/** Les mesures du §14, sans aucun texte de souvenir. Durées en millisecondes entières. */
 function mesuresExportables() {
+  const ms = (v) => (v == null ? null : Math.round(v));
   return {
     graine: etat.graine,
     vitesse: VITESSE,
-    tempsDeJeuMs: etat.temps,
+    tempsDeJeuMs: ms(etat.temps),
     termine: etat.termine,
     retenus: etat.entrees.length,
     outils: [...etat.outils],
     saturations: etat.mesures.saturations.map((s) => ({
       n: s.n,
-      debutMs: s.debutMs,
-      dureeMs: s.dureeMs,
+      debutMs: ms(s.debutMs),
+      dureeMs: ms(s.dureeMs),
       decision: s.decision,
       oublis: s.oublis,
       coutArrivant: s.cout,
       libre: s.libre,
+      premierPlanMs: ms(s.premierPlanMs),
+      plusLongueInactiviteMs: ms(s.plusLongueInactiviteMs),
+      armesAbandonnes: s.armesAbandonnes ?? null,
     })),
   };
 }
@@ -412,7 +426,9 @@ setInterval(() => {
 
   const historiqueAvant = etat.historique.length;
   // Pendant un choix, le temps qui passe est celui de l'hésitation : il n'est pas accéléré.
-  const evenements = M.tick(etat, etat.enAttente ? dtReel : dtReel * VITESSE, rng);
+  const evenements = M.tick(etat, etat.enAttente ? dtReel : dtReel * VITESSE, rng, {
+    auPremierPlan: document.hasFocus(),
+  });
   const plein = evenements.length > 0 || etat.historique.length !== historiqueAvant;
   if (plein) {
     sauver();
@@ -423,6 +439,16 @@ setInterval(() => {
 }, 250);
 
 document.addEventListener('visibilitychange', () => { dernier = performance.now(); });
+
+// Mesures du §14 : ce que fait le joueur pendant un choix. Rien ne lui est affiché.
+// Le défilement du registre ne remonte pas jusqu'au document : il est capté en phase de capture.
+function interaction() {
+  if (etat.enAttente) M.noterInteraction(etat);
+}
+for (const type of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart']) {
+  document.addEventListener(type, interaction, { passive: true });
+}
+document.addEventListener('scroll', interaction, { capture: true, passive: true });
 
 if (M.dejaJoue() && etat.tires.length === 0) {
   etat.journal.push({ t: 0, texte: 'tu as déjà joué. cette fois, sans découverte.' });

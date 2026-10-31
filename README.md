@@ -1,5 +1,7 @@
 # Capacité de mémoire — MVP
 
+[![Tests](https://github.com/DavidGiangiacomo/capacite-memoire/actions/workflows/tests.yml/badge.svg)](https://github.com/DavidGiangiacomo/capacite-memoire/actions/workflows/tests.yml)
+
 Prototype falsifiable (§14 du [design doc](docs/design-doc.md)) du concept n°6 des « Douze concepts de jeux incrémentaux ».
 
 Une seule ressource, fixe : l'espace. Les souvenirs arrivent seuls ; tout ce qui entre doit tenir ; ce qui ne tient pas doit sortir. Oublier libère de la place et supprime réellement le texte, de l'écran, de la sauvegarde et du jeu.
@@ -26,8 +28,11 @@ Puis ouvrir <http://localhost:8000/>. Une partie du MVP dure une dizaine de minu
 ## Tester
 
 ```sh
-npm test             # node --test, 24 tests sur le moteur (aucune dépendance)
+npm test             # node --test : tests du moteur et invariants d'équilibrage (aucune dépendance)
+npm run simuler      # joue des parties entières et affiche le calendrier de chacune
 ```
+
+Les deux tournent aussi sur GitHub Actions (`.github/workflows/tests.yml`) à chaque pull request et à chaque push sur `main` : les tests sous Node 22 et 24, la simulation dans le résumé du job.
 
 ## Ce que couvre le MVP
 
@@ -58,6 +63,16 @@ Le jeu mesure combien de temps le joueur reste sur chaque écran de choix, en te
 
 Les mêmes mesures sont dans la sauvegarde `localStorage`, champ `mesures.saturations`.
 
+**Hésitation ou pause ?** Le jeu s'arrête quand l'onglet est caché, mais pas quand la fenêtre perd le focus ou que le joueur se lève. Trois mesures de chaque choix aident à faire la différence, sans rien afficher au joueur :
+
+| Champ | Ce qu'il mesure | Ce qu'il suggère |
+|---|---|---|
+| `premierPlanMs` | le temps passé fenêtre au premier plan | très inférieur à `dureeMs` : le joueur était dans une autre fenêtre |
+| `plusLongueInactiviteMs` | la plus longue période sans bouger la souris, faire défiler, cliquer ni taper | proche de `dureeMs` : personne devant l'écran ; quelques secondes : une lecture |
+| `armesAbandonnes` | les « sûr ? » qui ont expiré ou ont été remplacés sans second clic | le joueur a failli oublier un souvenir, puis s'est ravisé |
+
+Les choix faits avant l'ajout de ces champs les exportent à `null`.
+
 > S'il tranche en deux secondes, les souvenirs sont mal écrits et le jeu n'existe pas. S'il hésite dix secondes et relit la liste, tout le reste du document tient.
 
 ## Options d'URL (développement)
@@ -78,7 +93,8 @@ style.css
 src/corpus.js     les 40 souvenirs { id, texte, cout, motifs }
 src/moteur.js     logique pure : état, tick 4 Hz, tirage, saturation, oubli, réseau, outils, sauvegarde
 src/app.js        rendu DOM, clics, boucle, son
-test/             tests du moteur (node --test)
+scripts/simuler.mjs  simulateur d'équilibrage, avec le vrai moteur
+test/             tests du moteur et invariants d'équilibrage (node --test)
 docs/design-doc.md
 ```
 
@@ -87,6 +103,6 @@ docs/design-doc.md
 - **Oublier à deux clics.** Le bouton passe à « sûr ? » pendant 2,5 s ; le second clic supprime. Ce n'est pas une annulation ni une réassurance (R2), c'est une garde contre le clic accidentel, qui fausserait la mesure du §14.
 - **Rythme compressé.** Avec 40 souvenirs, la première saturation arrive vers 7 min et la partie dure 10–12 min de temps de jeu, plus le temps des choix. Les 12 minutes d'acte I du §9 supposent le corpus complet.
 - **Le temps s'arrête pendant le choix.** Première version : les associations continuaient pendant l'écran de choix, donc en hésitant on finissait par pouvoir acheter l'Extension et résoudre la saturation sans rien oublier. Le premier test l'a montré. Maintenant le choix est fermé : écarter, ou oublier.
-- **Équilibrage des outils.** Indexation 6 000 A, Extension 10 000 A, calés par simulation (cinq graines, trois stratégies de joueur) : l'Indexation devient abordable vers 6,5 min, juste avant la première saturation qu'elle précipite avec ses 120 unités ; l'Extension vers 9 min, après plusieurs oublis. Même à 768 avec l'aide et la phrase oubliées, il manque de la place : entre 5 et 12 choix forcés par partie selon la stratégie.
+- **Équilibrage des outils.** Indexation 6 000 A, Extension 10 000 A, calés avec `npm run simuler` (cinq graines, trois stratégies de joueur, 10 s d'hésitation simulée par choix) : l'Indexation devient abordable vers 6,5 min, juste avant la première saturation qu'elle précipite avec ses 120 unités ; l'Extension vers 9 min, après plusieurs oublis. Même à 768 avec l'aide et la phrase oubliées, il manque de la place : entre 5 et 12 choix forcés par partie selon la stratégie. `test/equilibrage.test.mjs` échoue si un changement du corpus ou des coûts casse ce calendrier.
 - **L'historique ne s'écrit pas quand c'est plein.** Tout ce qui entre doit tenir ; l'occupation ne dépasse jamais la capacité.
 - **Historique.** Une ligne par minute (`min 7 — 23 retenus, 311 / 512`), oubliable par tranches de 5 lignes.
